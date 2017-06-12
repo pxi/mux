@@ -1,3 +1,4 @@
+// Package mux implements several HTTP request multiplexers.
 package mux
 
 import (

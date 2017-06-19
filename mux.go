@@ -5,7 +5,114 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
+
+// Vars holds the named variables extracted by Match.
+type Vars []struct{ k, v string }
+
+// Match reports whether text matches the given pattern. The pattern syntax is:
+//
+//  pattern:
+//      { term }
+//  term:
+//      '*'         matches any sequence of non-/ characters
+//      '{' { variable-name } '}'
+//                  named variable (must be non-empty); matches any sequence
+//                  of non-/ characters
+//      '?'         matches any single non-/ character
+//      c           matches character c (c != '*', '?', '{')
+//
+//  variable-name:
+//      c           matches character c (c != '}')
+//
+// Match requires pattern to match all of text, not just a substring.
+// Named variables defined in the pattern are extracted to vars.
+func Match(pattern, text string, vars *Vars) bool {
+	key := ""
+	nx, vx := 0, 0
+	px, tx := 0, 0
+	nextPx := 0
+	nextTx := 0
+	for px < len(pattern) || tx < len(text) {
+		if px < len(pattern) {
+			switch c := pattern[px]; c {
+			default:
+				if tx < len(text) && text[tx] == c {
+					if px > 0 && pattern[px-1] == '}' {
+						vars.Set(key, text[vx:tx])
+					}
+					px++
+					tx++
+					continue
+				}
+			case '?':
+				if tx == len(text) || text[tx] == '/' {
+					vars.Reset()
+					return false
+				}
+				_, n := utf8.DecodeRuneInString(text[tx:])
+				px += 1
+				tx += n
+				continue
+			case '*', '{':
+				// Try to match at tx. If that doesn't work out,
+				// restart at tx+1 next.
+				nextPx = px
+				nextTx = tx + 1
+				px++
+				if c == '{' {
+					if nx < px {
+						vx = tx
+						nx = px + strings.IndexByte(pattern[px:], '}')
+						key = pattern[px:nx]
+					}
+					px += len(key) + 1
+				}
+				continue
+			}
+		}
+		if nextTx <= len(text) {
+			px = nextPx
+			tx = nextTx
+			// Variable-length wildcards cannot skip /.
+			if (pattern[px] == '*' || pattern[px] == '{') && text[tx-1] != '/' {
+				continue
+			}
+		}
+		vars.Reset()
+		return false
+	}
+	if px > 0 && pattern[px-1] == '}' {
+		vars.Set(key, text[vx:tx])
+	}
+	return true
+}
+
+// Set sets the value for the key k to v.
+func (vars *Vars) Set(k, v string) {
+	for i, p := range *vars {
+		if p.k == k {
+			(*vars)[i] = struct{ k, v string }{k, v}
+			return
+		}
+	}
+	*vars = append(*vars, struct{ k, v string }{k, v})
+}
+
+// Get returns the value for the given key. If key is not found from vars,
+// empty string is returned.
+func (vars *Vars) Get(k string) string {
+	for _, p := range *vars {
+		if p.k == k {
+			return p.v
+		}
+	}
+	return ""
+}
+
+// Reset resets vars to an empty state.
+func (vars *Vars) Reset() { *vars = (*vars)[:0] }
 
 // Method dispatches requests to different handlers based on the incoming
 // request's HTTP method. It automatically handles OPTIONS requests based on

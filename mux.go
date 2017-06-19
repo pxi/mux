@@ -151,6 +151,6 @@ func (route Method) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	rw.Header().Set("Allow", strings.Join(allow, ", "))
 
 	if method != http.MethodOptions {
-		rw.WriteHeader(http.StatusMethodNotAllowed)
+		http.Error(rw, "405 method not allowed", http.StatusMethodNotAllowed)
 	}
 }

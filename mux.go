@@ -147,10 +147,44 @@ func (route Method) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			allow = append(allow, k)
 		}
 	}
-	sort.Strings(allow)
-	rw.Header().Set("Allow", strings.Join(allow, ", "))
+	setAllowHeader(rw.Header(), allow)
 
 	if method != http.MethodOptions {
 		http.Error(rw, "405 method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func setAllowHeader(header http.Header, allow []string) {
+	sort.Strings(allow)
+	header.Set("Allow", strings.Join(allow, ", "))
+}
+
+// NotAllowed responds to the request with an HTTP 405 method not allowed error
+// if the request's method is not one of the given methods. It returns false if
+// the request is allowed and true if the request should be blocked.
+//
+// NotAllowed automatically handles OPTIONS requests based on the given methods.
+// This can be overridden by providing "OPTIONS" as one of the allowed methods.
+func NotAllowed(rw http.ResponseWriter, req *http.Request, allow ...string) bool {
+	addopt := true
+	method := strings.ToUpper(req.Method)
+	for i, s := range allow {
+		s = strings.ToUpper(s)
+		if method == s {
+			return false
+		}
+		if s == http.MethodOptions {
+			addopt = false
+		}
+		allow[i] = s
+	}
+	if addopt {
+		allow = append(allow, http.MethodOptions)
+	}
+	setAllowHeader(rw.Header(), allow)
+
+	if method != http.MethodOptions {
+		http.Error(rw, "405 method not allowed", http.StatusMethodNotAllowed)
+	}
+	return true
 }

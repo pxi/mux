@@ -95,57 +95,68 @@ func TestMatch(t *testing.T) {
 	}
 }
 
-func TestMethod(t *testing.T) {
-	cases := []struct {
-		name    string
-		methods []string // registered methods
-		method  string   // request method
-		code    int      // response status code
-		allow   string   // response allow header
-	}{
-		{
-			"empty",
-			[]string{},
+var allowTests = []struct {
+	name    string
+	methods []string // registered methods
+	method  string   // request method
+	code    int      // response status code
+	allow   string   // response allow header
+	ret     string   // response return header
+}{
+	{
+		"empty",
+		[]string{},
+		http.MethodGet,
+		http.StatusMethodNotAllowed,
+		"OPTIONS",
+		"true",
+	},
+	{
+		"match",
+		[]string{http.MethodGet},
+		http.MethodGet,
+		http.StatusOK,
+		"",
+		"false",
+	},
+	{
+		"no match",
+		[]string{
 			http.MethodGet,
-			http.StatusMethodNotAllowed,
-			"OPTIONS",
+			http.MethodPut,
+			http.MethodPost,
+			http.MethodPatch,
 		},
-		{
-			"match",
-			[]string{http.MethodGet},
+		http.MethodHead,
+		http.StatusMethodNotAllowed,
+		"GET, OPTIONS, PATCH, POST, PUT",
+		"true",
+	},
+	{
+		"options",
+		[]string{
 			http.MethodGet,
-			http.StatusOK,
-			"",
+			http.MethodPut,
+			http.MethodPost,
+			http.MethodPatch,
 		},
-		{
-			"options",
-			[]string{
-				http.MethodGet,
-				http.MethodPut,
-				http.MethodPost,
-				http.MethodPatch,
-			},
-			http.MethodOptions,
-			http.StatusOK,
-			"GET, OPTIONS, PATCH, POST, PUT",
-		},
-		{
-			"options override",
-			[]string{http.MethodOptions},
-			http.MethodOptions,
-			http.StatusOK,
-			"",
-		},
-		{
-			"lowercase request",
-			[]string{http.MethodGet},
-			"get",
-			http.StatusOK,
-			"",
-		},
-	}
+		http.MethodOptions,
+		http.StatusOK,
+		"GET, OPTIONS, PATCH, POST, PUT",
+		"true",
+	},
+	{
+		"options override",
+		[]string{http.MethodOptions},
+		http.MethodOptions,
+		http.StatusOK,
+		"",
+		"false",
+	},
+}
 
-	for _, tc := range cases {
+func TestMethod(t *testing.T) {
+	for _, tc := range allowTests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -161,6 +172,35 @@ func TestMethod(t *testing.T) {
 			mux.ServeHTTP(rw, req)
 			equal(t, rw.Code, tc.code, "status code")
 			equal(t, rw.Header().Get("Allow"), tc.allow, "allow header")
+		})
+	}
+}
+
+func allow(allow []string) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if NotAllowed(rw, req, allow...) {
+			rw.Header().Set("Return", "true")
+			return
+		}
+		rw.Header().Set("Return", "false")
+	})
+}
+
+func TestNotAllowed(t *testing.T) {
+	for _, tc := range allowTests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			rw := httptest.NewRecorder()
+			req := &http.Request{Method: tc.method}
+
+			handler := allow(tc.methods)
+			handler.ServeHTTP(rw, req)
+
+			equal(t, rw.Code, tc.code, "status code")
+			equal(t, rw.Header().Get("Allow"), tc.allow, "allow header")
+			equal(t, rw.Header().Get("Return"), tc.ret, "return header")
 		})
 	}
 }

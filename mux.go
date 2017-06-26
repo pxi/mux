@@ -147,16 +147,15 @@ func (route Method) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			allow = append(allow, k)
 		}
 	}
-	setAllowHeader(rw.Header(), allow)
+	setAllow(rw, method, allow)
+}
 
+func setAllow(rw http.ResponseWriter, method string, allow []string) {
+	sort.Strings(allow)
+	rw.Header().Set("Allow", strings.Join(allow, ", "))
 	if method != http.MethodOptions {
 		http.Error(rw, "405 method not allowed", http.StatusMethodNotAllowed)
 	}
-}
-
-func setAllowHeader(header http.Header, allow []string) {
-	sort.Strings(allow)
-	header.Set("Allow", strings.Join(allow, ", "))
 }
 
 // NotAllowed responds to the request with an HTTP 405 method not allowed error
@@ -181,10 +180,6 @@ func NotAllowed(rw http.ResponseWriter, req *http.Request, allow ...string) bool
 	if addopt {
 		allow = append(allow, http.MethodOptions)
 	}
-	setAllowHeader(rw.Header(), allow)
-
-	if method != http.MethodOptions {
-		http.Error(rw, "405 method not allowed", http.StatusMethodNotAllowed)
-	}
+	setAllow(rw, method, allow)
 	return true
 }

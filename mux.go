@@ -1,4 +1,4 @@
-// Package mux implements several HTTP request multiplexers.
+// Package mux implements HTTP request multiplexing helpers.
 package mux
 
 import (
@@ -89,22 +89,22 @@ func Match(pattern, text string, vars *Vars) bool {
 	return true
 }
 
-// Set sets the value for the key k to v.
-func (vars *Vars) Set(k, v string) {
+// Set assigns the given value to the given key.
+func (vars *Vars) Set(key, value string) {
 	for i, p := range *vars {
-		if p.k == k {
-			(*vars)[i] = struct{ k, v string }{k, v}
+		if p.k == key {
+			(*vars)[i] = struct{ k, v string }{key, value}
 			return
 		}
 	}
-	*vars = append(*vars, struct{ k, v string }{k, v})
+	*vars = append(*vars, struct{ k, v string }{key, value})
 }
 
-// Get returns the value for the given key. If key is not found from vars,
-// empty string is returned.
-func (vars *Vars) Get(k string) string {
+// Get returns the value for the given key. If key is not found, it returns an
+// empty string.
+func (vars *Vars) Get(key string) string {
 	for _, p := range *vars {
-		if p.k == k {
+		if p.k == key {
 			return p.v
 		}
 	}
@@ -115,9 +115,10 @@ func (vars *Vars) Get(k string) string {
 func (vars *Vars) Reset() { *vars = (*vars)[:0] }
 
 // Method dispatches requests to different handlers based on the incoming
-// request's HTTP method. It automatically handles OPTIONS requests based on
-// the configured handlers. This can be overridden by providing a custom
-// handler for OPTIONS method.
+// request's HTTP method. It can automatically handle OPTIONS requests based
+// on the configured handlers. This can be overridden by providing a custom
+// handler for OPTIONS method. Configured HTTP method is always assumed to be
+// the upper-case variant.
 type Method map[string]http.Handler
 
 // Get dispatches GET requests to the given handler.

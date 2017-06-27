@@ -1,6 +1,9 @@
 package mux
 
-import "net/http"
+import (
+	"io"
+	"net/http"
+)
 
 func ExampleMatch() {
 	const (
@@ -14,8 +17,10 @@ func ExampleMatch() {
 		switch {
 		case Match(routeOne, path, &vars):
 			// handle route one
+			io.WriteString(rw, vars.Get("named")+"\n")
 		case Match(routeTwo, path, &vars):
 			// handle route two
+			io.WriteString(rw, vars.Get("named")+"\n")
 		default:
 			http.NotFound(rw, req)
 			return

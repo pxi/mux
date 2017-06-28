@@ -47,14 +47,12 @@ func Match(pattern, text string, vars *Vars) bool {
 					continue
 				}
 			case '?':
-				if tx == len(text) || text[tx] == '/' {
-					vars.Reset()
-					return false
+				if tx < len(text) && text[tx] != '/' {
+					_, n := utf8.DecodeRuneInString(text[tx:])
+					px += 1
+					tx += n
+					continue
 				}
-				_, n := utf8.DecodeRuneInString(text[tx:])
-				px += 1
-				tx += n
-				continue
 			case '*', '{':
 				// Try to match at tx. If that doesn't work out,
 				// restart at tx+1 next.

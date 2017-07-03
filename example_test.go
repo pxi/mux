@@ -42,20 +42,3 @@ func ExampleMethod() {
 		http.MethodPut: http.HandlerFunc(put),
 	})
 }
-
-func ExampleNotAllowed() {
-	http.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
-		if NotAllowed(rw, req, http.MethodGet, http.MethodPut) {
-			return
-		}
-
-		switch req.Method {
-		case http.MethodGet:
-			// handle GET request
-		case http.MethodPut:
-			// handle PUT request
-		default:
-			panic("never reached")
-		}
-	})
-}
